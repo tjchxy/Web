@@ -1,1 +1,1 @@
-alert(‘测试javaScript’)
+alert('测试JavaScript');

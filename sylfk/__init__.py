@@ -30,6 +30,15 @@ class ExecFunc:
 
 
 class SYLFk:
+    # 实例化方法
+    def __init__(self,static_folder='static'):
+        self.host = '127.0.0.1'
+        self.port = 8086
+        self.url_map = {}
+        self.static_map = {}
+        self.function_map = {}
+        self.static_folder = static_folder
+        self.route=Route(self)
 
     def dispatch_static(self,static_path):
         if os.path.exists(static_path):
@@ -42,20 +51,14 @@ class SYLFk:
         else:
             return ERROR_MAP['404']
 
-    # 实例化方法
-    def __init__(self,static_folder='static'):
-        self.host = '127.0.0.1'
-        self.port = 8086
-        self.url_map = {}
-        self.static_map = {}
-        self.function_map = {}
-        self.static_folder = static_folder
-        self.route=Route(self)
+
 
     def add_url_rule(self,url,func,func_type,endpoint=None,**options):
         if endpoint is None:
             endpoint=func.__name__
         if url in self.url_map:
+            raise exceptions.URLExistsError
+        if endpoint in self.function_map and func_type != 'static':
             raise exceptions.EndpointExistsError
         self.url_map[url]=endpoint
         self.function_map[endpoint]=ExecFunc(func,func_type,**options)
@@ -77,7 +80,7 @@ class SYLFk:
         # # ...
 
         # # 框架被 WSGI 调用入口的方法
-        url="/"+"/".join(request.url.split("/")[3:1]).split("?")[0]
+        url="/"+"/".join(request.url.split("/")[3:]).split("?")[0]
         if url.startswith('/' + self.static_folder + '/'):
             endpoint='static'
             url=url[1:]
@@ -89,7 +92,7 @@ class SYLFk:
             return ERROR_MAP['404']
         exec_function=self.function_map[endpoint]
         if exec_function.func_type =='route':
-            if request.method in exec_function.options.get('method'):
+            if request.method in exec_function.options.get('methods'):
                 argcount=exec_function.func.__code__.co_argcount
                 if argcount>0:
                     rep=exec_function.func(request)
@@ -105,10 +108,8 @@ class SYLFk:
             return ERROR_MAP['503']
         status=200
         content_type='text/html'
-        return Response(rep,content_type='s%;charset=UTF-8' % content_type,headers=headers,status=status)
+        return Response(rep,content_type='%s; charset=UTF-8' % content_type,headers=headers,status=status)
 
-    def __call__(self, environ, start_response):
-        return wsgi_app(self, environ, start_response)
 
     # 启动入口
     def run(self, host=None, port=None, **options):
